@@ -60,26 +60,57 @@ Implement the trading algorithm as per the instructions. You should initialize n
 
 
 ```r
-# Initialize columns for trade type, cost/proceeds, and accumulated shares in amd_df
-amd_df$trade_type <- NA
-amd_df$costs_proceeds <- NA  # Corrected column name
-amd_df$accumulated_shares <- 0  # Initialize if needed for tracking
-
-# Initialize variables for trading logic
 previous_price <- 0
 share_size <- 100
 accumulated_shares <- 0
-
+###################
 for (i in 1:nrow(amd_df)) {
-# Fill your code here
+# Set up trade type column
+if (previous_price==0){amd_df$trade_type[1]<-"buy"} # First row
+if (amd_df$close[i]<previous_price){amd_df$trade_type[i]<-"buy"} # Rest of the rows
+previous_price<-amd_df$close[i]
+# Set up other columns for buys
+if (amd_df$trade_type[i]=="buy"){
+amd_df$costs_proceeds[i]<-(-1)*amd_df$close[i]*share_size
+accumulated_shares<-accumulated_shares+share_size
 }
+amd_df$accumulated_shares[i]<-accumulated_shares
+}
+# Set up the last row sell
+amd_df$trade_type[nrow(amd_df)]<-"sell"
+amd_df$costs_proceeds[nrow(amd_df)]<-accumulated_shares*amd_df$close[nrow(amd_df)]
+amd_df$accumulated_shares[nrow(amd_df)]<-0
 ```
 
 
 ### Step 3: Customize Trading Period
 - Define a trading period you wanted in the past five years 
 ```r
-# Fill your code here
+# Define dates
+start_date <- as.Date('2023-01-01')
+end_date <- as.Date('2023-12-31')
+# Filter the data to include only the trading period
+amd_df <- amd_df[amd_df$date<=end_date & amd_df$date>=start_date,]
+# Code from Step 2
+amd_df$trade_type <- ""
+amd_df$costs_proceeds <- 0
+amd_df$accumulated_shares <- 0
+previous_price <- 0
+share_size <- 100
+accumulated_shares <- 0
+###################
+for (i in 1:nrow(amd_df)) {
+if (previous_price==0){amd_df$trade_type[1]<-"buy"}
+if (amd_df$close[i]<previous_price){amd_df$trade_type[i]<-"buy"}
+previous_price<-amd_df$close[i]
+if (amd_df$trade_type[i]=="buy"){ amd_df$costs_proceeds[i]<-(-1)*amd_df$close[i]*share_size
+accumulated_shares<-accumulated_shares+share_size
+}
+amd_df$accumulated_shares[i]<-accumulated_shares
+}
+amd_df$trade_type[nrow(amd_df)]<-"sell"
+amd_df$costs_proceeds[nrow(amd_df)]<-accumulated_shares*amd_df$close[nrow(amd_df)]
+amd_df$accumulated_shares[nrow(amd_df)]<-0
 ```
 
 
@@ -91,7 +122,19 @@ After running your algorithm, check if the trades were executed as expected. Cal
 - ROI Formula: $$\text{ROI} = \left( \frac{\text{Total Profit or Loss}}{\text{Total Capital Invested}} \right) \times 100$$
 
 ```r
-# Fill your code here
+# Profit or Loss
+Profit_Loss<-sum(amd_df$costs_proceeds)
+# Invested Capital and ROI
+total_capital_investment<-0
+for (i in 1:nrow(amd_df)){
+if(amd_df$trade_type[i]=="buy"){
+total_capital_investment<-total_capital_investment+abs(amd_df$costs_proceeds[i])
+}
+}
+ROI<-100*(Profit_Loss)/(total_capital_investment)
+print(paste("The profit/loss is", Profit_Loss))
+print(paste("The Invested Capital is", total_capital_investment))
+print(paste("The ROI is", ROI, "%"))
 ```
 
 ### Step 5: Profit-Taking Strategy or Stop-Loss Mechanisum (Choose 1)
@@ -100,7 +143,64 @@ After running your algorithm, check if the trades were executed as expected. Cal
 
 
 ```r
-# Fill your code here
+#Option 1
+# Define dates
+start_date <- as.Date('2023-01-01')
+end_date <- as.Date('2023-12-31')
+# Filter the data to include only the trading period
+amd_df <- amd_df[amd_df$date<=end_date & amd_df$date>=start_date,]
+# Initialize columns
+amd_df$trade_type <- ""
+amd_df$costs_proceeds <- 0
+amd_df$accumulated_shares <- 0
+amd_df$average_purchasing_price<-NA
+amd_df$acc_purchases<-0
+# Initialize variables for trading logic
+previous_price <- 0
+share_size <- 100
+accumulated_shares <- 0
+average_purchasing_price<-0
+acc_purchases<-0
+total_capital_investment<-0
+###################
+for (i in 1:nrow(amd_df)) {
+# First row
+if (previous_price==0){
+amd_df$trade_type[1]<-"buy"
+average_purchasing_price<-amd_df$close[1]
+}
+# Assigning trade type for the rest of the rows
+if (amd_df$close[i]>=1.2*average_purchasing_price&&!is.na(average_purchasing_price)){
+amd_df$trade_type[i]<-"sell"
+}else if (amd_df$close[i]<previous_price){
+amd_df$trade_type[i]<-"buy"}
+#Filling in the rest of the row
+if (amd_df$trade_type[i]=="buy"){
+amd_df$costs_proceeds[i]<-(-1)*amd_df$close[i]*share_size
+acc_purchases<-acc_purchases+abs(amd_df$costs_proceeds[i])
+total_capital_investment<-total_capital_investment+abs(amd_df$costs_proceeds[i])
+accumulated_shares<-accumulated_shares+share_size
+}
+if (amd_df$trade_type[i]=="sell"){
+amd_df$costs_proceeds[i]<-amd_df$close[i]*(accumulated_shares/2)
+accumulated_shares<-accumulated_shares/2
+acc_purchases<-acc_purchases/2 #acc purchases/2 when acc shares/2
+}
+average_purchasing_price<-acc_purchases/accumulated_shares
+previous_price<-amd_df$close[i]
+amd_df$acc_purchases[i]<-acc_purchases
+amd_df$accumulated_shares[i]<-accumulated_shares
+amd_df$average_purchasing_price[i]<-average_purchasing_price
+}
+#last row sell
+amd_df$trade_type[nrow(amd_df)]<-"sell"
+amd_df$costs_proceeds[nrow(amd_df)]<-accumulated_shares*amd_df$close[nrow(amd_df)]
+amd_df$accumulated_shares[nrow(amd_df)]<-0
+# P/L and ROI
+Profit_Loss<-sum(amd_df$costs_proceeds)
+ROI<-100*(Profit_Loss)/(total_capital_investment)
+print(paste("The Profit/Loss is", Profit_Loss))
+print(paste("The ROI is", ROI,"%"))
 ```
 
 
@@ -110,7 +210,12 @@ After running your algorithm, check if the trades were executed as expected. Cal
 
 
 ```r
-# Fill your code here and Disucss
+# Run this code after Step 1 and 5 for strategy 2, run step 1,3,4 for strategy 1
+# Otherwise P/L and ROI are already printed in Steps 4 and 5 for strategyy 1 and 2 respectively
+Profit_Loss<-sum(amd_df$costs_proceeds)
+ROI<-100*(Profit_Loss)/(total_capital_investment)
+print(paste("The Profit/Loss is", Profit_Loss))
+print(paste("The ROI is", ROI,"%"))
 ```
 
 Sample Discussion: On Wednesday, December 6, 2023, AMD CEO Lisa Su discussed a new graphics processor designed for AI servers, with Microsoft and Meta as committed users. The rise in AMD shares on the following Thursday suggests that investors believe in the chipmaker's upward potential and market expectations; My first strategy earned X dollars more than second strategy on this day, therefore providing a better ROI.
